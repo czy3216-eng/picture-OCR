@@ -1,329 +1,371 @@
 r"""
-RapidOCR 批量图片识别 + 取色 (高速版 v2)
-=========================================
-引擎共享 + numpy 向量化取色 + 多线程并发
-目标: 单张 <0.1s, 704张 <60s
+Qwen3-VL:8b 批量图片识别 + 取色 (Ollama 极速版)
+================================================
+核心优化:
+  1. 图片缩小到 336px 再发送 (Qwen3-VL 原生分辨率, 大幅减少 prompt 处理时间)
+  2. JPEG 压缩 quality=65 → base64 体积减 80%+
+  3. num_predict=8 (icon 文字最多 4-5 汉字)
+  4. keep_alive 让模型常驻内存
+  5. 单次打开图片, 取色+编码复用 PIL Image
+
+前置:
+    docker exec <容器名> ollama pull qwen3-vl:8b
+    Docker 推荐启动参数: -e OLLAMA_NUM_PARALLEL=4 -e OLLAMA_FLASH_ATTENTION=1
 
 用法:
-    python ollama_ocr.py                 # 处理全部图片
-    python ollama_ocr.py --limit 10      # 测试前10张
-    python ollama_ocr.py --workers 4     # 指定线程数
+    python ollama_ocr.py --limit 10
+    python ollama_ocr.py --workers 4 --limit 10   # 如果 GPU 够大
+    python ollama_ocr.py                           # 全量 704 张
 """
 
-import os
-import sys
-import time
-import argparse
-import json
+import os, sys, re, time, argparse, json, base64, io
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 from PIL import Image
+import requests
 
 # ======================== 配置 ========================
 IMAGE_DIR = r"D:\a-test\cutQP"
 OUTPUT_DIR = r"D:\a-test\result"
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}
-DEFAULT_WORKERS = 4  # ONNX Runtime 内部已多线程，外部线程不宜太多
+SUPPORTED_EXTENSIONS = {".jpg",".jpeg",".png",".bmp",".gif",".webp"}
 
-# ======================== 颜色 & 后处理 (与 ocr_color.py 一致) ========================
+OLLAMA_BASE = "http://localhost:11434"
+MODEL = "qwen3-vl:8b"
+
+# 并发: Ollama GPU 串行 → 2-3 最佳
+DEFAULT_WORKERS = 2
+# OCR 超时
+OCR_TIMEOUT = 60
+# 最小 token (icon ≤ 5 个汉字)
+MAX_TOKENS = 8
+# 重试
+RETRIES = 1
+
+# VL 图片预处理: 缩小到 336px + JPEG 压缩 → base64 体积减 80%+
+VL_MAX_SIZE = 336
+VL_JPEG_QUALITY = 65
+
+# Prompt — 极简到极致
+PROMPT = "OUTPUT ONLY the Chinese text visible in this picture. Do NOT say anything else."
+
+# ======================== 颜色 & 后处理 ========================
 
 def color_to_grade(hex_color):
-    """HSV 色相 → 品级: red|orange|purple|blue|green|white"""
     hc = hex_color.upper().lstrip('#')
-    if hc in ("FFFFFF", "000000"):
-        return "white"
+    if hc in ("FFFFFF","000000"): return "white"
+    r,g,b = int(hc[0:2],16)/255,int(hc[2:4],16)/255,int(hc[4:6],16)/255
+    mx,mn = max(r,g,b), min(r,g,b)
+    d = mx - mn
+    if d < 0.1: return "white"
+    if d==0: h=0
+    elif mx==r: h=60*(((g-b)/d)%6)
+    elif mx==g: h=60*(((b-r)/d)+2)
+    else: h=60*(((r-g)/d)+4)
+    if h<0: h+=360
+    if h<15 or h>=345: return "red"
+    if h<45 or h<75: return "orange"
+    if h<165: return "green"
+    if h<270: return "blue"
+    return "purple"
 
-    r = int(hc[0:2], 16) / 255.0
-    g = int(hc[2:4], 16) / 255.0
-    b = int(hc[4:6], 16) / 255.0
-
-    maxc, minc = max(r, g, b), min(r, g, b)
-    delta = maxc - minc
-    if delta < 0.1:
-        return "white"
-
-    if delta == 0:
-        h = 0
-    elif maxc == r:
-        h = 60 * (((g - b) / delta) % 6)
-    elif maxc == g:
-        h = 60 * (((b - r) / delta) + 2)
-    else:
-        h = 60 * (((r - g) / delta) + 4)
-    if h < 0:
-        h += 360
-
-    if h < 15 or h >= 345:
-        return "red"
-    elif 15 <= h < 45:
-        return "orange"
-    elif 75 <= h < 165:
-        return "green"
-    elif 165 <= h < 270:
-        return "blue"
-    elif 270 <= h < 345:
-        return "purple"
-    return "orange"
-
-
-def extract_icon_color_fast(img_path):
-    """Numpy 向量化取色 (比像素级 Python 循环快 30-50x)"""
-    try:
-        img = Image.open(img_path).convert("RGB")
-        w, h = img.size
-        icon_w = int(w * 0.30)
-        region = img.crop((0, 0, icon_w, h))
-        px = np.array(region, dtype=np.uint8).reshape(-1, 3)  # (N, 3)
-
-        maxc = px.max(axis=1).astype(np.int32)
-        minc = px.min(axis=1).astype(np.int32)
-        sat = maxc - minc
-
-        # Step 1: 饱和度过滤 (maxc>50, sat>15, maxc<240)
-        mask = (maxc > 50) & (sat > 15) & (maxc < 240)
-        if mask.any():
-            sp = px[mask]
-            quant = ((sp // 8) * 8 + 4).astype(np.uint8)
-            unique, counts = np.unique(quant.view([('', quant.dtype)] * 3), return_counts=True)
-            # convert back
-            unique_arr = unique.view(np.uint8).reshape(-1, 3)
-            top = unique_arr[counts.argmax()]
-            r, g, b = int(top[0]), int(top[1]), int(top[2])
-
-            if max(r, g, b) < 80:
-                # 暗色结果 → 检查是否为白色 icon
-                q2 = ((px // 32) * 32 + 16).astype(np.uint8)
-                u2 = q2.view([('', q2.dtype)] * 3)
-                u2_arr = q2  # same
-                uniq, cnt = np.unique(u2, return_counts=True)
-                uniq_arr = uniq.view(np.uint8).reshape(-1, 3)
-                for ti in np.argsort(cnt)[-3:]:
-                    cr, cg, cb = int(uniq_arr[ti][0]), int(uniq_arr[ti][1]), int(uniq_arr[ti][2])
-                    if cr > 192 and cg > 192 and cb > 192 and max(cr,cg,cb)-min(cr,cg,cb) < 32:
-                        return "#FFFFFF"
-            return f"#{r:02X}{g:02X}{b:02X}"
-
-        # Step 2: 无饱和像素 → 检查白色 icon
-        q2 = ((px // 32) * 32 + 16).astype(np.uint8)
-        u2 = q2.view([('', q2.dtype)] * 3)
-        uniq, cnt = np.unique(u2, return_counts=True)
-        uniq_arr = uniq.view(np.uint8).reshape(-1, 3)
-        for ti in np.argsort(cnt)[-3:]:
-            cr, cg, cb = int(uniq_arr[ti][0]), int(uniq_arr[ti][1]), int(uniq_arr[ti][2])
-            if cr > 192 and cg > 192 and cb > 192 and max(cr,cg,cb)-min(cr,cg,cb) < 32:
-                return "#FFFFFF"
-
-        # Step 3: Fallback
-        f_mask = (maxc > 15) & ~((px[:,0] > 230) & (px[:,1] > 230) & (px[:,2] > 230))
-        if f_mask.any():
-            fp = px[f_mask]
-            q3 = ((fp // 32) * 32).astype(np.uint8)
-            u3 = q3.view([('', q3.dtype)] * 3)
-            uniq3, cnt3 = np.unique(u3, return_counts=True)
-            uniq3_arr = uniq3.view(np.uint8).reshape(-1, 3)
-            top = uniq3_arr[cnt3.argmax()]
-            return f"#{int(top[0]):02X}{int(top[1]):02X}{int(top[2]):02X}"
-        return "#000000"
-    except Exception:
-        return "#000000"
-
-
-# 兼容旧函数名
-extract_icon_color = extract_icon_color_fast
-
+def extract_icon_color_from_array(px):
+    """从 numpy 像素数组提取颜色 (px shape: N×3 uint8)"""
+    maxc = px.max(axis=1).astype(np.int32)
+    minc = px.min(axis=1).astype(np.int32)
+    sat = maxc - minc
+    # Step 1: 饱和度过滤
+    mask = (maxc>50)&(sat>15)&(maxc<240)
+    if mask.any():
+        sp = px[mask]
+        quant = ((sp//8)*8+4).astype(np.uint8)
+        qv = quant.view([('',quant.dtype)]*3)
+        uniq,cnt = np.unique(qv,return_counts=True)
+        top = uniq.view(np.uint8).reshape(-1,3)[cnt.argmax()]
+        r,g,b = int(top[0]),int(top[1]),int(top[2])
+        if max(r,g,b)<80:
+            q2=((px//32)*32+16).astype(np.uint8)
+            u2=q2.view([('',q2.dtype)]*3)
+            uu,cc=np.unique(u2,return_counts=True)
+            ua=uu.view(np.uint8).reshape(-1,3)
+            for ti in np.argsort(cc)[-3:]:
+                cr,cg,cb=int(ua[ti][0]),int(ua[ti][1]),int(ua[ti][2])
+                if cr>192 and cg>192 and cb>192 and max(cr,cg,cb)-min(cr,cg,cb)<32:
+                    return "#FFFFFF"
+        return f"#{r:02X}{g:02X}{b:02X}"
+    # Step 2: 白色
+    q2=((px//32)*32+16).astype(np.uint8)
+    u2=q2.view([('',q2.dtype)]*3)
+    uu,cc=np.unique(u2,return_counts=True)
+    ua=uu.view(np.uint8).reshape(-1,3)
+    for ti in np.argsort(cc)[-3:]:
+        cr,cg,cb=int(ua[ti][0]),int(ua[ti][1]),int(ua[ti][2])
+        if cr>192 and cg>192 and cb>192 and max(cr,cg,cb)-min(cr,cg,cb)<32:
+            return "#FFFFFF"
+    # Step 3: fallback
+    f_mask=(maxc>15)&~(px[:,0]>230)&~(px[:,1]>230)&~(px[:,2]>230)
+    if f_mask.any():
+        fp=px[f_mask]; q3=((fp//32)*32).astype(np.uint8)
+        u3=q3.view([('',q3.dtype)]*3)
+        uu3,cc3=np.unique(u3,return_counts=True)
+        top=uu3.view(np.uint8).reshape(-1,3)[cc3.argmax()]
+        return f"#{int(top[0]):02X}{int(top[1]):02X}{int(top[2]):02X}"
+    return "#000000"
 
 def postprocess_text(text):
-    """后处理 OCR 识别错误"""
+    """后处理: 修正 OCR/VL 常见误识别 + 清洗标点"""
+
+    # === 符号清除 ===
     text = text.replace("￥", "").replace("$", "")
-    text = text.replace("绒花", "缄花")
-    text = text.replace("今", "")
-    text = text.replace("→", "")
+    text = text.replace("今", "").replace("→", "")
+    text = text.replace(".", "").replace("·", "").replace(",,", "")
+
+    # === 去除首尾垃圾标点 ===
+    text = text.strip("》>《<》>「」『』\"'\"—")
+
+    # === 去除行首孤立字母前缀 (如 I旧梦 → 旧梦, X新春 → 新春) ===
+    text = re.sub(r'^[A-Za-z](?=[\u4e00-\u9fff])', '', text)
+
+    # === OCR 误识别修正 (武器/装备 场景) ===
+    fixes = [
+        ("紧凌", "紧凑"),
+        ("复合引", "复合弓"),
+        ("十字引", "十字弓"),
+        ("复合写", "复合弓"),
+        ("绳索弓1", "绳索弓"),
+        ("绒花", "缄花"),
+        ("黄窖", "黄莺"),
+        ("黄窜", "黄莺"),
+        ("徒|", "徒"),
+        ("·", ""),
+    ]
+    for wrong, right in fixes:
+        text = text.replace(wrong, right)
+
+    # === 破折号规范化 ===
+    text = text.replace("——", "-")
+    text = text.replace("—", "-")
+
+    # === 去除分隔符两侧多余空格/引号 ===
+    text = re.sub(r'\s*-\s*', '-', text)
+
+    # === 末尾收拾 ===
     text = text.strip("—")
-    text = text.strip(":：")
+    text = text.strip(":：").strip("。").strip("，")
     return text.strip()
 
-
-def format_duration(seconds: float) -> str:
-    if seconds < 60:
-        return f"{seconds:.1f}s"
-    m, s = divmod(seconds, 60)
-    return f"{int(m)}m{int(s)}s"
-
-
-def scan_images(directory: str) -> list:
-    dir_path = Path(directory)
-    return sorted([str(f) for f in dir_path.iterdir()
+def scan_images(directory):
+    dp = Path(directory)
+    return sorted([str(f) for f in dp.iterdir()
                    if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS])
 
+# ======================== Ollama ========================
 
-# ======================== 核心处理 ========================
+def check_ollama():
+    try:
+        r = requests.get(f"{OLLAMA_BASE}/api/tags", timeout=5)
+    except requests.ConnectionError:
+        print("\n  ❌ Ollama 未连接! 请启动服务"); sys.exit(1)
+    except requests.Timeout:
+        print("\n  ❌ Ollama 超时!"); sys.exit(1)
+    if r.status_code != 200:
+        print(f"\n  ❌ Ollama HTTP {r.status_code}"); sys.exit(1)
+    data = r.json()
+    models = [m.get("name","") for m in data.get("models",[])]
+    base = MODEL.split(":")[0]
+    for m in models:
+        if m == MODEL or m.lower().startswith(base.lower()):
+            print(f"  ✅ {m} 已就绪"); return
+    # 真实探测
+    try:
+        tr = requests.post(f"{OLLAMA_BASE}/api/generate",
+            json={"model":MODEL,"prompt":"ok","stream":False}, timeout=10)
+        if tr.status_code == 200:
+            print(f"  ✅ 模型可用"); return
+    except: pass
+    print(f"\n  ❌ '{MODEL}' 不可用!")
+    if models: print(f"     已有: {', '.join(models[:10])}")
+    sys.exit(1)
 
-def create_engine():
-    """创建 RapidOCR 引擎 (只调用一次，主线程)"""
-    from rapidocr_onnxruntime import RapidOCR
-    return RapidOCR(use_cuda=False, use_dml=False)
+def warmup_model():
+    print("  预热...", end=" ", flush=True)
+    t0 = time.time()
+    try:
+        r = requests.post(f"{OLLAMA_BASE}/api/generate",
+            json={"model":MODEL,"prompt":"hello","stream":False,
+                  "options":{"num_predict":2,"temperature":0}},
+            timeout=120)
+        e = time.time()-t0
+        print(f"{'✅' if r.status_code==200 else '⚠️'} ({e:.1f}s)")
+        return r.status_code == 200
+    except requests.Timeout:
+        print(f"❌ 超时 ({time.time()-t0:.0f}s)")
+    except Exception as ex:
+        print(f"❌ {ex}")
+    return False
 
+def prepare_vl_b64(pil_img):
+    """缩小 + JPEG 压缩 → base64 (大幅减少 Ollama 处理时间)"""
+    w, h = pil_img.size
+    max_dim = max(w, h)
+    if max_dim > VL_MAX_SIZE:
+        scale = VL_MAX_SIZE / max_dim
+        pil_img = pil_img.resize((int(w*scale), int(h*scale)), Image.LANCZOS)
+    buf = io.BytesIO()
+    pil_img.save(buf, format="JPEG", quality=VL_JPEG_QUALITY)
+    return base64.b64encode(buf.getvalue()).decode()
 
-def ocr_text(engine, img_path):
-    """RapidOCR 识别文字 (引擎共享，ONNX 内部多线程)"""
-    result = engine(img_path)
-    if result is None or not result:
-        return ""
-    boxes_texts = result[0]
-    if not boxes_texts:
-        return ""
-    texts = [str(item[1]) for item in boxes_texts if len(item) >= 2]
-    return postprocess_text(" | ".join(texts).strip())
+def ocr_one(img_b64, max_retries=RETRIES):
+    """VL 识别 (支持重试)"""
+    payload = {
+        "model": MODEL,
+        "prompt": PROMPT,
+        "images": [img_b64],
+        "stream": False,
+        "keep_alive": 300,   # 模型常驻 5 分钟
+        "options": {
+            "num_predict": MAX_TOKENS,
+            "temperature": 0,
+        },
+    }
+    last_err = ""
+    for attempt in range(max_retries + 1):
+        try:
+            r = requests.post(f"{OLLAMA_BASE}/api/generate",
+                              json=payload, timeout=OCR_TIMEOUT)
+            if r.status_code == 200:
+                text = r.json().get("response","").strip()
+                return postprocess_text(text)
+            last_err = f"HTTP {r.status_code}"
+            if attempt < max_retries: time.sleep(2)
+        except requests.Timeout:
+            last_err = "TIMEOUT"
+            if attempt < max_retries: time.sleep(3)
+        except Exception as e:
+            last_err = str(e)[:40]
+            if attempt < max_retries: time.sleep(1)
+    return f"[{last_err}]"
 
+# ======================== 单张 (一次打开, 取色+编码复用) ========================
 
-def process_one(engine, idx, img_path):
-    """处理单张: 取色 + OCR"""
+def process_one(idx, img_path, max_retries):
     filename = os.path.basename(img_path)
     t0 = time.time()
     try:
-        color = extract_icon_color(img_path)
-        text = ocr_text(engine, img_path)
+        # 一次打开, 两步复用
+        img = Image.open(img_path).convert("RGB")
+        w, h = img.size
+        # 取色 (左侧 30%)
+        icon_w = int(w * 0.30)
+        region = np.array(img.crop((0, 0, icon_w, h)), dtype=np.uint8).reshape(-1, 3)
+        color = extract_icon_color_from_array(region)
         grade = color_to_grade(color)
+        # VL 识别 (缩小 + JPEG 压缩)
+        img_b64 = prepare_vl_b64(img)
+        text = ocr_one(img_b64, max_retries)
         elapsed = time.time() - t0
-        return {
-            "grade": grade, "name": text, "filename": filename,
-            "idx": idx, "elapsed": elapsed, "success": True,
-        }
+        ok = not text.startswith("[")
+        return {"grade":grade,"name":text,"filename":filename,
+                "idx":idx,"elapsed":elapsed,"success":ok}
     except Exception as e:
-        elapsed = time.time() - t0
-        return {
-            "grade": "white", "name": f"[ERROR] {e}", "filename": filename,
-            "idx": idx, "elapsed": elapsed, "success": False,
-        }
+        return {"grade":"white","name":f"[ERR]{e}","filename":filename,
+                "idx":idx,"elapsed":time.time()-t0,"success":False}
 
-
-# ======================== 主流程 ========================
+# ======================== Main ========================
 
 def main():
-    parser = argparse.ArgumentParser(description="RapidOCR 批量识别+取色 (引擎共享高速版)")
-    parser.add_argument("--dir", default=IMAGE_DIR, help="图片目录")
-    parser.add_argument("--output-dir", default=OUTPUT_DIR, help="输出目录")
-    parser.add_argument("--limit", type=int, default=0, help="限制数量 (0=全部)")
-    parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
-                        help=f"线程数 (默认={DEFAULT_WORKERS})")
-    args = parser.parse_args()
+    p = argparse.ArgumentParser(description="Qwen3-VL:8b OCR + 取色 (极速版)")
+    p.add_argument("--dir", default=IMAGE_DIR)
+    p.add_argument("--output-dir", default=OUTPUT_DIR)
+    p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
+                   help=f"并发数 (默认={DEFAULT_WORKERS}, 建议 2-4)")
+    p.add_argument("--no-warmup", action="store_true")
+    p.add_argument("--no-retry", action="store_true")
+    args = p.parse_args()
 
-    out_dir = args.output_dir
-    os.makedirs(out_dir, exist_ok=True)
-    workers = max(1, min(args.workers, 8))
+    os.makedirs(args.output_dir, exist_ok=True)
+    workers = max(1, min(args.workers, 6))
+    max_retries = 0 if args.no_retry else RETRIES
 
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    output_file = os.path.join(out_dir, f"ocr_color_{timestamp}.json")
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    out = os.path.join(args.output_dir, f"ocr_color_{ts}.json")
 
-    print("=" * 60)
-    print(f"  RapidOCR 引擎共享 + 多线程 ({workers} threads)")
-    print("=" * 60)
+    print("="*60)
+    print(f"  Qwen3-VL:8b | {workers}w | resize→{VL_MAX_SIZE}px "
+          f"| JPEG q={VL_JPEG_QUALITY} | tokens={MAX_TOKENS} | timeout={OCR_TIMEOUT}s")
+    print("="*60)
 
-    # [1/3] 扫描
-    print(f"\n[1/3] 扫描图片: {args.dir}")
+    # [1] 扫描
+    print(f"\n[1/4] 扫描: {args.dir}")
     images = scan_images(args.dir)
-    if not images:
-        print("  ❌ 未找到图片")
-        sys.exit(1)
-    if args.limit > 0:
-        images = images[:args.limit]
-    total = len(images)
+    if not images: print("  ❌ 无图片"); sys.exit(1)
+    if args.limit>0: images=images[:args.limit]
+    total=len(images)
     print(f"  找到 {total} 张")
 
-    # [2/3] 初始化 (只创建 1 个引擎, 所有线程共享)
-    print(f"\n[2/3] 初始化 RapidOCR 引擎 ...")
-    t_init = time.time()
-    engine = create_engine()
-    print(f"  ✅ 初始化完成 ({time.time() - t_init:.1f}s)")
+    # [2] Ollama
+    print(f"\n[2/4] 检测 Ollama")
+    check_ollama()
 
-    # [3/3] 多线程处理 (共享引擎, 无锁)
-    print(f"\n[3/3] 开始处理 {total} 张 ({workers} threads)...")
-    print("-" * 60)
+    # [3] 预热
+    if not args.no_warmup:
+        print(f"\n[3/4] 预热")
+        warmup_model()
+    else:
+        print(f"\n[3/4] 跳过预热")
 
-    total_start = time.time()
-    all_results = []
-    success_count = 0
-    fail_count = 0
+    # [4] 处理
+    print(f"\n[4/4] 处理 {total} 张 ({workers} workers, retries={max_retries})...")
+    print("-"*60)
 
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            executor.submit(process_one, engine, i, img): i
-            for i, img in enumerate(images, 1)
-        }
-        for future in as_completed(futures):
-            r = future.result()
-            all_results.append(r)
-            if r["success"]:
-                success_count += 1
-            else:
-                fail_count += 1
+    t_all = time.time()
+    results = []; ok=0; ng=0
 
-            done = len(all_results)
-            preview = r["name"].replace("\n", " ")[:45]
-            elapsed_sofar = time.time() - total_start
-            eta = (elapsed_sofar / done) * (total - done) if done > 0 else 0
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futs = {ex.submit(process_one,i,img,max_retries):i for i,img in enumerate(images,1)}
+        for fut in as_completed(futs):
+            r = fut.result()
+            results.append(r)
+            if r["success"]: ok+=1
+            else: ng+=1
+            done=len(results)
+            preview=r["name"].replace("\n"," ")[:40]
+            per=f"{r['elapsed']*1000:.0f}ms" if r["elapsed"]<1 else f"{r['elapsed']:.1f}s"
+            eta_s=(time.time()-t_all)/done*(total-done) if done>0 else 0
+            mm,ss=divmod(int(eta_s),60)
+            icon="✅" if r["success"] else "❌"
+            print(f"[{done:3d}/{total}] {r['filename']:<22s} {per:>7s} "
+                  f"{icon} {r['grade']:6s} {preview}  ETA {mm}m{ss}s")
 
-            # 用 ms 显示（快的时候 s 看不出来）
-            per_img = f"{r['elapsed']*1000:.0f}ms" if r["elapsed"] < 1 else f"{r['elapsed']:.2f}s"
-            print(
-                f"[{done:>3d}/{total}] {r['filename']:<25s} "
-                f"{per_img:>6s} | {r['grade']:6s} | {preview}"
-            )
+    total_t=time.time()-t_all
+    results.sort(key=lambda x:x["idx"])
+    stimes=[x["elapsed"] for x in results if x["success"]]
+    avg_ms=sum(stimes)/len(stimes)*1000 if stimes else 0
+    tp=ok/total_t*60 if total_t>0 else 0
 
-    total_elapsed = time.time() - total_start
+    print(f"\n{'='*60}")
+    print(f"  ✅ {ok}/{total}  |  {ng} fail")
+    print(f"  {total_t:.1f}s total  |  avg {avg_ms:.0f}ms/img  |  {tp:.0f} img/min")
+    if stimes:
+        print(f"  最快 {min(stimes)*1000:.0f}ms  |  最慢 {max(stimes)*1000:.0f}ms")
+    print(f"  📄 {out}")
 
-    # 排序
-    all_results.sort(key=lambda r: r["idx"])
+    j = {"_meta":{
+        "total":total,"success":ok,"failed":ng,
+        "total_time_sec":round(total_t,1),"avg_time_ms":round(avg_ms,1),
+        "throughput_per_min":round(tp,1),
+        "generated_at":time.strftime("%Y-%m-%d %H:%M:%S"),
+        "engine":f"Qwen3-VL:8b ({workers}w, resize{VL_MAX_SIZE}px, JPEG q={VL_JPEG_QUALITY}, tokens={MAX_TOKENS})"},
+        "results":[{"grade":x["grade"],"name":x["name"]} for x in results]}
+    with open(out,"w",encoding="utf-8") as f:
+        json.dump(j,f,ensure_ascii=False,indent=2)
 
-    # 统计
-    success_times = [r["elapsed"] for r in all_results if r["success"]]
-    avg_ms = sum(success_times) / len(success_times) * 1000 if success_times else 0
-    throughput = success_count / total_elapsed if total_elapsed > 0 else 0
+    print(f"\n--- 预览 ---")
+    for i,x in enumerate(results[:10],1):
+        print(f"  {i}. [{x['grade']:6s}] {x['name'][:50]}")
+    if len(results)>10: print(f"  ... +{len(results)-10} more")
 
-    print("\n" + "=" * 60)
-    print("  ✅ 完成！")
-    print(f"  总数: {total} | 成功: {success_count} | 失败: {fail_count}")
-    print(f"  总耗时: {format_duration(total_elapsed)} ({total_elapsed:.1f}s)")
-    if success_times:
-        print(f"  单张: 平均 {avg_ms:.0f}ms | 最快 {min(success_times)*1000:.0f}ms | "
-              f"最慢 {max(success_times)*1000:.0f}ms")
-        print(f"  吞吐: {throughput*60:.0f} 张/min")
-        if total_elapsed < 60 and total == 704:
-            print(f"  🎯 达标！{total_elapsed:.1f}s < 60s")
-        elif avg_ms < 1000:
-            print(f"  ✅ 单张 {avg_ms:.0f}ms < 1000ms 达标")
-    print(f"  avg/张: {avg_ms:.0f}ms")
-    print("=" * 60)
-    print(f"  📄 结果: {output_file}")
-
-    # 构建 JSON
-    output_data = {
-        "_meta": {
-            "total": total,
-            "success": success_count,
-            "failed": fail_count,
-            "total_time_sec": round(total_elapsed, 1),
-            "avg_time_ms": round(avg_ms, 1),
-            "throughput_per_min": round(throughput * 60, 1),
-            "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "source_dir": args.dir,
-            "engine": "RapidOCR (ONNX Runtime, shared)",
-        },
-        "results": [{"grade": r["grade"], "name": r["name"]} for r in all_results]
-    }
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(output_data, f, ensure_ascii=False, indent=2)
-
-    # 预览
-    print(f"\n--- 预览 (前10条) ---")
-    for i, r in enumerate(all_results[:10], 1):
-        print(f"  {i}. [{r['grade']:6s}] {r['name'][:50]}")
-    if len(all_results) > 10:
-        print(f"  ... +{len(all_results)-10} more")
-
-
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
