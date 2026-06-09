@@ -1,0 +1,195 @@
+===== 元信息 =====
+总条目: 704
+成功: 704, 失败: 0
+总耗时: 46.8s, 平均: 65.6ms/张
+
+===== 尾部—残留: 0个 =====
+
+===== white.png (1个) =====
+  white.png: color=#FFFFFF text=黑鹰
+
+===== #FFFFFF 条目 (147个) =====
+  a午夜邮差.jpg | #FFFFFF | Vector冲锋枪-能天使·午夜邮差
+  white.png | #FFFFFF | 黑鹰
+  枪皮_17.jpg | #FFFFFF | AK-12突击步枪-纵横
+  枪皮_208.jpg | #FFFFFF | SMG-45冲锋枪-武器大师
+  枪皮_21.jpg | #FFFFFF | SG552突击步枪-运动员
+  枪皮_210.jpg | #FFFFFF | ¥QSZ92G-—帆风顺
+  枪皮_211.jpg | #FFFFFF | SMG-45冲锋枪-武器大师
+  枪皮_213.jpg | #FFFFFF | ¥QSZ92G-—帆风顺
+  枪皮_215.jpg | #FFFFFF | SG552突击步枪-马年新春
+  枪皮_219.jpg | #FFFFFF | SG552突击步枪-贴花艺术
+  枪皮_222.jpg | #FFFFFF | SG552突击步枪-贴花艺术
+  枪皮_224.jpg | #FFFFFF | SG552突击步枪--2026
+  枪皮_228.jpg | #FFFFFF | SV-98狙击步枪-繁盛
+  枪皮_231.jpg | #FFFFFF | SV-98狙击步枪-繁盛
+  枪皮_234.jpg | #FFFFFF | SV-98狙击步枪-繁盛
+  枪皮_235.jpg | #FFFFFF | PSG-1射手步枪-主宰
+  枪皮_24.jpg | #FFFFFF | SG552突击步枪-运动员
+  枪皮_240.jpg | #FFFFFF | SCAR-H战斗步枪-旧梦
+  枪皮_243.jpg | #FFFFFF | SCAR-H战斗步枪-旧梦
+  枪皮_253.jpg | #FFFFFF | AKS-74U突击步枪-冰天雪地
+  枪皮_26.jpg | #FFFFFF | SR-25射手步枪-信条
+  枪皮_267.jpg | #FFFFFF | QCQ171冲锋枪-地平线
+  枪皮_268.jpg | #FFFFFF | QCQ171冲锋枪-地平线
+  枪皮_269.jpg | #FFFFFF | QCQ171冲锋枪-地平线
+  枪皮_270.jpg | #FFFFFF | QCQ171冲锋枪-地平线
+  枪皮_272.jpg | #FFFFFF | SV-98狙击步枪-花岗岩
+  枪皮_275.jpg | #FFFFFF | QJB201轻机枪-哈夫克卫队
+  枪皮_278.jpg | #FFFFFF | QJB201轻机枪-哈夫克卫队
+  枪皮_282.jpg | #FFFFFF | SCAR-H战斗步枪-黄香
+  枪皮_289.jpg | #FFFFFF | QJB201轻机枪-黄香
+  枪皮_291.jpg | #FFFFFF | QBZ95-1突击步枪-公平竞技
+  枪皮_293.jpg | #FFFFFF | PSG-1射手步枪-天网
+  枪皮_296.jpg | #FFFFFF | PSG-1射手步枪-天网
+  枪皮_3.jpg | #FFFFFF | SR-25射手步枪-缄花
+  枪皮_301.jpg | #FFFFFF | SCAR-H战斗步枪-开心时刻
+  枪皮_303.jpg | #FFFFFF | SMG-45冲锋枪-天网
+  枪皮_312.jpg | #FFFFFF | SCAR-H战斗步枪-荣耀列队
+  枪皮_322.jpg | #FFFFFF | SMG-45冲锋枪-哈夫克卫队
+  枪皮_328.jpg | #FFFFFF | QJB201轻机枪-远航
+  枪皮_335.jpg | #FFFFFF | SCAR-H战斗步枪-远航
+  枪皮_338.jpg | #FFFFFF | SCAR-H战斗步枪-远航
+  枪皮_340.jpg | #FFFFFF | SMG-45冲锋枪-幻影结构
+  枪皮_343.jpg | #FFFFFF | SMG-45冲锋枪-幻影结构
+  枪皮_358.jpg | #FFFFFF | SR-25射手步枪-蜂窝科技
+  枪皮_359.jpg | #FFFFFF | SMG-45冲锋枪-行动开启
+  枪皮_360.jpg | #FFFFFF | SV-98狙击步枪-哈夫克航天
+  枪皮_361.jpg | #FFFFFF | SR-25射手步枪-蜂窝科技
+  枪皮_362.jpg | #FFFFFF | SMG-45冲锋枪-行动开启
+  枪皮_363.jpg | #FFFFFF | SV-98狙击步枪-哈夫克航天
+  枪皮_367.jpg | #FFFFFF | SR-25射手步枪-蜂窝科技
+  枪皮_368.jpg | #FFFFFF | SMG-45冲锋枪-行动开启
+  枪皮_369.jpg | #FFFFFF | SV-98狙击步枪-哈夫克航天
+  枪皮_4.jpg | #FFFFFF | SR-25射手步枪-缄花
+  枪皮_40.jpg | #FFFFFF | QCQ171冲锋枪-鹅鸭杀
+  枪皮_402.jpg | #FFFFFF | QBZ95-1突击步枪-精准打击
+  枪皮_403.jpg | #FFFFFF | SR-25射手步枪-开拓
+  枪皮_406.jpg | #FFFFFF | SR-25射手步枪-开拓
+  枪皮_41.jpg | #FFFFFF | QJB201轻机枪-鹅鸭杀
+  枪皮_414.jpg | #FFFFFF | QJB201轻机枪-典雅
+  枪皮_417.jpg | #FFFFFF | QJB201轻机枪-典雅
+  枪皮_419.jpg | #FFFFFF | SG552突击步枪-狂欢
+  枪皮_42.jpg | #FFFFFF | SCAR-H战斗步枪-启航
+  枪皮_422.jpg | #FFFFFF | SV-98狙击步枪-典雅
+  枪皮_425.jpg | #FFFFFF | SV-98狙击步枪-典雅
+  枪皮_428.jpg | #FFFFFF | QBZ95-1突击步枪-2026
+  枪皮_431.jpg | #FFFFFF | QBZ95-1突击步枪-2026
+  枪皮_442.jpg | #FFFFFF | SR-25射手步枪-黑巧甜心
+  枪皮_443.jpg | #FFFFFF | AK-12突击步枪-变色龙
+  枪皮_45.jpg | #FFFFFF | AK-12突击步枪-特斯拉线圈
+  枪皮_451.jpg | #FFFFFF | AKS-74U突击步枪-磐石
+  枪皮_456.jpg | #FFFFFF | QJB201轻机枪-磐石
+  枪皮_459.jpg | #FFFFFF | QJB201轻机枪-磐石
+  枪皮_469.jpg | #FFFFFF | QSZ92G-条纹
+  枪皮_470.jpg | #FFFFFF | SV-98狙击步枪-条纹
+  枪皮_472.jpg | #FFFFFF | QSZ92G-条纹
+  枪皮_473.jpg | #FFFFFF | SV-98狙击步枪-条纹
+  枪皮_476.jpg | #FFFFFF | SMG-45冲锋枪-条纹
+  枪皮_48.jpg | #FFFFFF | AK-12突击步枪-特斯拉线圈
+  枪皮_484.jpg | #FFFFFF | QSZ92G-电路图
+  枪皮_487.jpg | #FFFFFF | SCAR-H战斗步枪-电路图
+  枪皮_489.jpg | #FFFFFF | QJB201轻机枪-山林猎人
+  枪皮_490.jpg | #FFFFFF | SCAR-H战斗步枪-电路图
+  枪皮_492.jpg | #FFFFFF | QJB201轻机枪-山林猎人
+  枪皮_499.jpg | #FFFFFF | SR-25射手步枪-黄蜂
+  枪皮_5.jpg | #FFFFFF | SR-25射手步枪-缄花
+  枪皮_502.jpg | #FFFFFF | SR-25射手步枪-黄蜂
+  枪皮_507.jpg | #FFFFFF | SG552突击步枪-彩墨喷涂
+  枪皮_510.jpg | #FFFFFF | SG552突击步枪-彩墨喷涂
+  枪皮_516.jpg | #FFFFFF | QJB201轻机枪-三角洲力量
+  枪皮_519.jpg | #FFFFFF | QJB201轻机枪-三角洲力量
+  枪皮_521.jpg | #FFFFFF | AK-12突击步枪-落花
+  枪皮_532.jpg | #FFFFFF | AK-12突击步枪-坚固材料
+  枪皮_537.jpg | #FFFFFF | QBZ95-1突击步枪-海色
+  枪皮_538.jpg | #FFFFFF | QBZ95-1突击步枪-海色
+  枪皮_539.jpg | #FFFFFF | QBZ95-1突击步枪-海色
+  枪皮_540.jpg | #FFFFFF | QBZ95-1突击步枪-海色
+  枪皮_550.jpg | #FFFFFF | SMG-45冲锋枪-几何碎片
+  枪皮_551.jpg | #FFFFFF | QBZ95-1突击步枪-三角洲力量
+  枪皮_552.jpg | #FFFFFF | SG552突击步枪-浅蓝涂装
+  枪皮_555.jpg | #FFFFFF | SG552突击步枪-精钢
+  枪皮_556.jpg | #FFFFFF | SG552突击步枪-精钢
+  枪皮_557.jpg | #FFFFFF | SG552突击步枪-精钢
+  枪皮_558.jpg | #FFFFFF | SG552突击步枪-精钢
+  枪皮_568.jpg | #FFFFFF | SV-98狙击步枪-冰川
+  枪皮_570.jpg | #FFFFFF | QBZ95-1突击步枪-海浪
+  枪皮_571.jpg | #FFFFFF | QBZ95-1突击步枪-海浪
+  枪皮_572.jpg | #FFFFFF | QBZ95-1突击步枪-海浪
+  枪皮_573.jpg | #FFFFFF | QBZ95-1突击步枪-海浪
+  枪皮_575.jpg | #FFFFFF | SG552突击步枪-海浪
+  枪皮_577.jpg | #FFFFFF | QCQ171冲锋枪-三角洲力量
+  枪皮_578.jpg | #FFFFFF | AK-12突击步枪-冰川
+  枪皮_593.jpg | #FFFFFF | QBZ95-1突击步枪-高雅黑
+  枪皮_596.jpg | #FFFFFF | QBZ95-1突击步枪-高雅黑
+  枪皮_6.jpg | #FFFFFF | SR-25射手步枪-缄花
+  枪皮_606.jpg | #FFFFFF | QSZ92G-风云涌动
+  枪皮_609.jpg | #FFFFFF | QSZ92G-风云涌动
+  枪皮_610.jpg | #FFFFFF | SCAR-H战斗步枪-矩阵
+  枪皮_615.jpg | #FFFFFF | SV-98狙击步枪-红色涂装
+  枪皮_618.jpg | #FFFFFF | SV-98狙击步枪-红色涂装
+  枪皮_619.jpg | #FFFFFF | SCAR-H战斗步枪-沙色涂装
+  枪皮_623.jpg | #FFFFFF | SCAR-H战斗步枪-数码迷彩
+  枪皮_626.jpg | #FFFFFF | SCAR-H战斗步枪-数码迷彩
+  枪皮_629.jpg | #FFFFFF | QBZ95-1突击步枪-高雅黑
+  枪皮_639.jpg | #FFFFFF | QSZ92G-风云涌动
+  枪皮_642.jpg | #FFFFFF | QSZ92G-风云涌动
+  枪皮_643.jpg | #FFFFFF | SCAR-H战斗步枪-矩阵
+  枪皮_648.jpg | #FFFFFF | SV-98狙击步枪-红色涂装
+  枪皮_651.jpg | #FFFFFF | SV-98狙击步枪-红色涂装
+  枪皮_652.jpg | #FFFFFF | SCAR-H战斗步枪-沙色涂装
+  枪皮_656.jpg | #FFFFFF | SCAR-H战斗步枪-数码迷彩
+  枪皮_659.jpg | #FFFFFF | SCAR-H战斗步枪-数码迷彩
+  枪皮_662.jpg | #FFFFFF | QBZ95-1突击步枪-高雅黑
+  枪皮_67.jpg | #FFFFFF | QCQ171冲锋枪-北极星
+  枪皮_672.jpg | #FFFFFF | QSZ92G-风云涌动
+  枪皮_675.jpg | #FFFFFF | QSZ92G-风云涌动
+  枪皮_676.jpg | #FFFFFF | SCAR-H战斗步枪-矩阵
+  枪皮_681.jpg | #FFFFFF | SV-98狙击步枪-红色涂装
+  枪皮_684.jpg | #FFFFFF | SV-98狙击步枪-红色涂装
+  枪皮_685.jpg | #FFFFFF | SCAR-H战斗步枪-沙色涂装
+  枪皮_689.jpg | #FFFFFF | SCAR-H战斗步枪-数码迷彩
+  枪皮_692.jpg | #FFFFFF | SCAR-H战斗步枪-数码迷彩
+  枪皮_70.jpg | #FFFFFF | SMG-45冲锋枪-骑士
+  枪皮_71.jpg | #FFFFFF | AK-12突击步枪-夜鹰
+  枪皮_72.jpg | #FFFFFF | SCAR-H战斗步枪-铁艺苍穹
+  枪皮_74.jpg | #FFFFFF | SR-25射手步枪-水墨云图
+  枪皮_77.jpg | #FFFFFF | SR-25射手步枪-水墨云图
+  枪皮_8.jpg | #FFFFFF | QBZ95-1突击步枪-凌霄成卫
+
+===== 非white.png的#FFFFFF (146个，可能误判) =====
+  a午夜邮差.jpg | Vector冲锋枪-能天使·午夜邮差
+  枪皮_17.jpg | AK-12突击步枪-纵横
+  枪皮_208.jpg | SMG-45冲锋枪-武器大师
+  枪皮_21.jpg | SG552突击步枪-运动员
+  枪皮_210.jpg | ¥QSZ92G-—帆风顺
+  枪皮_211.jpg | SMG-45冲锋枪-武器大师
+  枪皮_213.jpg | ¥QSZ92G-—帆风顺
+  枪皮_215.jpg | SG552突击步枪-马年新春
+  枪皮_219.jpg | SG552突击步枪-贴花艺术
+  枪皮_222.jpg | SG552突击步枪-贴花艺术
+  枪皮_224.jpg | SG552突击步枪--2026
+  枪皮_228.jpg | SV-98狙击步枪-繁盛
+  枪皮_231.jpg | SV-98狙击步枪-繁盛
+  枪皮_234.jpg | SV-98狙击步枪-繁盛
+  枪皮_235.jpg | PSG-1射手步枪-主宰
+  枪皮_24.jpg | SG552突击步枪-运动员
+  枪皮_240.jpg | SCAR-H战斗步枪-旧梦
+  枪皮_243.jpg | SCAR-H战斗步枪-旧梦
+  枪皮_253.jpg | AKS-74U突击步枪-冰天雪地
+  枪皮_26.jpg | SR-25射手步枪-信条
+  ... 共146个
+
+===== 空文本条目: 4个 =====
+  枪皮_541.jpg | #2CCC94
+  枪皮_611.jpg | #2CCC94
+  枪皮_644.jpg | #2CCC94
+  枪皮_677.jpg | #2CCC94
+
+===== 颜色分布 TOP15 =====
+  #2CCC94: 212个 (如: 枪皮_404.jpg, 枪皮_405.jpg, 枪皮_407.jpg)
+  #5C9CD4: 151个 (如: 枪皮_206.jpg, 枪皮_207.jpg, 枪皮_209.jpg)
+  #FFFFFF: 147个 (如: a午夜邮差.jpg, white.png, 枪皮_17.jpg)
+  #9C74DC: 123个 (如: 枪皮_100.jpg, 枪皮_101.jpg, 枪皮_102.jpg)
+  #C4845C: 62个 (如: 枪皮_1.jpg, 枪皮_10.jpg, 枪皮_11.jpg)
+  #CC5C5C: 9个 (如: 1.jpg, 2.jpg, 3.jpg)

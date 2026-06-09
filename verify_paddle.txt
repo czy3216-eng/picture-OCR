@@ -1,0 +1,8 @@
+SYNTAX: OK
+  [PASS] color_to_grade
+  [PASS] extract_icon_color
+  [PASS] postprocess_text
+  [PASS] grade/name format
+  [PASS] JSON output
+  [PASS] _meta info
+  [PASS] ThreadPoolExecutor
